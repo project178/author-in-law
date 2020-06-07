@@ -4,6 +4,7 @@ from codecs import open
 from math import ceil
 from re import sub
 from collections import Counter
+from os.path import exists
 
 
 from joblib import dump, load
@@ -37,10 +38,13 @@ def divise(text, chars=1000):
         elif x2 >= 0:
             parts.append(text[:chars+x2])
             text = text[chars+x2:]
+            
         else: return False
+        
         if len(text) < 300:
             text = parts[-1] + text
             parts.pop()
+            
         return text, parts
     
     parts = []
@@ -54,7 +58,9 @@ def divise(text, chars=1000):
         if len(text1) <= 500 or text == text1:
             parts.append(text1)
             del text, text1
+            
             return parts
+        
         else:
             text = text1
             del text1
@@ -107,18 +113,7 @@ def get_stop_words(texts_path="data/text"):
 def get_embeddings(dataset="data/text", embedding="tfidf"):
     
     with open(dataset, "rb") as data: texts = load(data)
-    #tokenizer = bert_tokenization.FullTokenizer(vocab_file='data/vocab.txt', do_lower_case=True)
-    #bert_corp = [[tokenizer.convert_tokens_to_ids(["[CLS]"] + tokenizer.tokenize(part) + ["[SEP]"]) for part in text] for text in texts]
-    #with open("data/bert", "wb") as bert_out: dump(bert_corp, bert_out)
-    #del tokenizer
-    if embedding == "tfidf":
-        vectorizer = TfidfVectorizer()
-        vectorizer.fit([part for text in texts for part in text])
-        tfidf_corp = [[vectorizer.transform([part]) for part in text] for text in texts]
-        with open("data/tfidf", "wb") as embedding: dump(tfidf_corp, embedding)
-        with open("data/tfidf_params", "wb") as params: dump(vectorizer.get_params(), params)
-
-        return vectorizer
+    if not exists("data/stopwords"): get_stop_words(texts_path="data/text")
     predictor = RNNMorphPredictor(language="ru")
     with open("data/stopwords", "rb") as stopwords:
         new_texts = []
@@ -129,15 +124,56 @@ def get_embeddings(dataset="data/text", embedding="tfidf"):
                 for form in predictor.predict(sub("[^АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя\s]", "", part).lower().split()): new_part += [] if (form.normal_form in stopwords or len(form.normal_form) == 1) else [form.normal_form]
                 new_text.append(new_part[:-1])
             new_texts.append(new_text)
+    texts = new_texts
+    
+    if embedding == "tfidf": return get_tfidf(texts)            
+    elif embedding == "w2v": get_w2v(texts, get_dict(texts))
+    elif embedding == "d2v": get_d2v(texts, get_dict(texts))
+    elif embedding == "ft": get_ft(texts)
+    elif embedding == "glove": get_glove(texts)
+    elif embedding == "bert": get_bert(texts)        
+
+    
+def get_tfidf(texts):
+    
+    vectorizer = TfidfVectorizer()
+    vectorizer.fit([part for text in texts for part in text])
+    tfidf_corp = [[vectorizer.transform([part]) for part in text] for text in texts]
+    with open("data/tfidf", "wb") as embedding: dump(tfidf_corp, embedding)
+    with open("data/tfidf_params", "wb") as params: dump(vectorizer.get_params(), params)
+
+    return vectorizer
+
+
+def get_dict(texts):
+
     dictionary = corpora.Dictionary(part for text in new_texts for part in text)
     with open("data/bow_dict", "wb") as tmp: dump(dictionary, tmp)
-    bow_corpus = [dictionary.doc2bow(part) for text in new_texts for part in text]
+
+    return dictionary
+
+
+def get_w2v(texts, dictionary):
+
+    bow_corpus = [dictionary.doc2bow(part) for text in new_texts for part in text] 
     with open("data/w2v", "wb") as tmp: dump(bow_corpus, tmp)
+
+    return bow_corpus
+
+
+def get_d2v(texts, dictionary):
+
     documents = [TaggedDocument(doc, [i]) for i, doc in enumerate([part for text in new_texts for part in text])]
     d2v = Doc2Vec(documents, vector_size=5, min_count=1, workers=8)
     d2v.save("data/d2v_model")
     d2v_corpora = [[d2v.infer_vector(part) for part in text] for text in new_texts]
     with open("data/d2v", "wb") as tmp: dump(d2v_corpora, tmp)
+
+    return d2v
+
+
+def get_ft(texts):
+
     ft = FastText(min_count=100)
     sentences = [part for text in new_texts for part in text]
     ft.build_vocab(sentences)
@@ -154,8 +190,14 @@ def get_embeddings(dataset="data/text", embedding="tfidf"):
         text_tmp.append(part_tmp)
       ft_corpora.append(text_tmp)
     with open("data/ft", "wb") as tmp: dump(ft_corpora, tmp)
+
+    return ft_corpora
+
+
+def get_glove(texts):
+
     corpus = Corpus()
-    corpus.fit(sentences, window=10)
+    corpus.fit([part for text in new_texts for part in text], window=10)
     glove = Glove(no_components=100, learning_rate=0.05)
     glove.fit(corpus.matrix, epochs=100, no_threads=8)
     with open("data/glove_model", "wb") as tmp: dump(glove, tmp)
@@ -163,3 +205,16 @@ def get_embeddings(dataset="data/text", embedding="tfidf"):
     glove_corpora = [[glove.transform_paragraph(part) for part in text] for text in new_texts]
     with open("data/glove", "wb") as tmp: dump(glove_corpora, tmp)
 
+    return glove_corpora
+
+
+def get_bert(texts):
+
+    new_texts = []
+    embeddings = extract_embeddings("data/bert_", texts[0], output_layer_num=4, poolings=[POOL_NSP, POOL_MAX])
+    for text in texts:
+      embeddings = extract_embeddings("data/bert_", text, output_layer_num=4, poolings=[POOL_NSP, POOL_MAX])
+      new_texts.append(embeddings)
+    with open("data/bert", "wb") as tmp: dump(new_texts, tmp)
+    
+    return new_texts
