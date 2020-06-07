@@ -1,10 +1,11 @@
-from bs4 import BeautifulSoup
-import requests
 from re import match, search, IGNORECASE
-from csv import writer, field_size_limit
+from csv import writer
 from codecs import open
 
-#field_size_limit(maxsize)
+from bs4 import BeautifulSoup
+import requests
+
+
 
 def get_text(node):
 
@@ -49,5 +50,7 @@ with open(str(dataset), "w", encoding="utf8") as outp:
 	        if "допроса" in link.text:
 	            writer.writerows(get_text(link.attrs["href"]))
 
+		
+		
 if __name__=="main":
 	relevant_text_from_site_to_csv(site="http://istmat.info/documents?tid_theme=All&tid_area=All&tid_state=All&tid_type=All&tid_tags=&period=&title=%D0%B4%D0%BE%D0%BF%D1%80%D0%BE%D1%81&page=", dataset="dataset1.csv")
