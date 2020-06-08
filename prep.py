@@ -218,3 +218,46 @@ def get_bert(texts):
     with open("data/bert", "wb") as tmp: dump(new_texts, tmp)
     
     return new_texts
+
+
+def generate_data(dataset_name, dataset_size=10000, test=[]):
+
+    with open("data/" + dataset_name, "rb") as dataset_file: data = load(dataset_file)
+    if dataset_name == "tfidf": texts = [[[tuple(word) for word in part.todense().tolist()] for part in text] for text in data if len(text)>1]
+    elif dataset_name == "ft": texts = [[numpy.sum(part, axis=0).tolist() for part in text] for text in data if len(text)>1]
+    elif dataset_name == "w2v" or dataset_name == "d2v": texts = [[part.tolist() for part in text] for text in data if len(text)>1]
+    else: texts = [text for text in data if len(text)>1]
+    del data
+    if "bert" in dataset_name:
+        l = 0
+        for text in texts:
+            for part in text: l = max(l, len(part))
+        for text in texts:
+            for part in text:
+                l1 = len(part)
+                while len(part) < l: part.append(0)
+                part.append(l1)
+    XY = set()
+    while len(XY) < dataset_size/2:
+        same1 = same2 = 0
+        while [same1, same2] in test or [same2, same1] in test or same2 is same1:
+            same = choice(texts)
+            same1 = tuple(choice(same))
+            same2 = tuple(choice(same))
+        if len({same1, same2}) == 2: XY.add((frozenset({same1, same2}), 1))
+        del same, same1, same2
+    while len(XY) < dataset_size:
+        difpart2 = difpart1 = 0
+        while difpart2 is difpart1 or [dif1, dif2] in test or [dif2, dif1] in test:
+            difpart1 = choice(texts)
+            difpart2 = choice(texts)
+            dif1, dif2 = choice(difpart1), choice(difpart2)
+        XY.add((frozenset({tuple(dif1), tuple(dif2)}), 0))
+        del difpart1, difpart2, dif1, dif2
+    X = []
+    Y = []
+    for xy in XY:
+        X.append([list(text) for text in xy[0]])
+        Y.append(xy[1])  
+
+    return X, Y
