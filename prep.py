@@ -127,11 +127,11 @@ def get_embeddings(dataset="data/text", embedding="tfidf"):
     texts = new_texts
     
     if embedding == "tfidf": return get_tfidf(texts)            
-    elif embedding == "w2v": get_w2v(texts, get_dict(texts))
-    elif embedding == "d2v": get_d2v(texts, get_dict(texts))
-    elif embedding == "ft": get_ft(texts)
-    elif embedding == "glove": get_glove(texts)
-    elif embedding == "bert": get_bert(texts)        
+    elif embedding == "w2v": return get_w2v(texts, get_dict(texts))
+    elif embedding == "d2v": return get_d2v(texts, get_dict(texts))
+    elif embedding == "ft": return get_ft(texts)
+    elif embedding == "glove": return get_glove(texts)
+    elif embedding == "bert": return get_bert(texts)        
 
     
 def get_tfidf(texts):
