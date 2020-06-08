@@ -8,12 +8,14 @@ from keras.models import Sequential, Model
 from keras.layers import Dense, Conv1D, MaxPooling1D, Conv2D, MaxPooling2D, Dropout, Flatten, LSTM, Lambda, Input
 from keras import backend as K
 
+import prep
+
 
 def train(dataset_name, model_name):
 
-    test_X, test_Y = generate_data(dataset_name, dataset_size=1000)
-    X, Y = generate_data(dataset_name, test=test_X)
-    X, Y, test_X, test_Y = numpy.array(X), numpy.array(Y), numpy.array(test_X), numpy.array(test_Y)
+    test_X, test_Y = prep.generate_data(dataset_name, dataset_size=1000)
+    X, Y = prep.generate_data(dataset_name, test=test_X)
+    X, Y, test_X, test_Y = array(X), array(Y), array(test_X), array(test_Y)
     nsamples, nx, ny = X.shape
     X = X.reshape((nsamples,nx*ny))
     nsamples, nx, ny = test_X.shape
@@ -108,9 +110,9 @@ def fit_siamese(X, Y, test_X, test_Y):
   distance = Lambda(euclidean_distance, output_shape=eucl_dist_output_shape)([processed_a, processed_b])
   model = Model([input_a, input_b], distance)
   model.compile(optimizer='Adagrad', loss=contrastive_loss, metrics=[accuracy])
-  model.fit([numpy.expand_dims(X[:, 0], axis=1), numpy.expand_dims(X[:, 1], axis=1)], Y, epochs=23)
+  model.fit([expand_dims(X[:, 0], axis=1), expand_dims(X[:, 1], axis=1)], Y, epochs=23)
   with open("data/siamese_glove", "wb") as tmp: dump(model, tmp)
-  y_pred = model.predict([numpy.expand_dims(test_X[:, 0], axis=1), numpy.expand_dims(test_X[:, 1], axis=1)])
+  y_pred = model.predict([expand_dims(test_X[:, 0], axis=1), expand_dims(test_X[:, 1], axis=1)])
   score = compute_accuracy(test_Y, y_pred)
   print(score)
   
@@ -148,7 +150,7 @@ def compute_accuracy(y_true, y_pred):
 
     pred = y_pred.ravel() < 0.5
     
-    return numpy.mean(pred == y_true)
+    return mean(pred == y_true)
 
 
 def base(inp):
